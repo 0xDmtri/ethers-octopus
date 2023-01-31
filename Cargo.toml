@@ -8,4 +8,6 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.68"
 ethers-middleware = "1.0.2"
+ethers-providers = "1.0.2"
 ethers-signers = "1.0.2"
+thiserror = "1.0.38"
