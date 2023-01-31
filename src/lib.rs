@@ -1,3 +1,6 @@
+use ethers_core::types::Bytes;
+use ethers_core::types::transaction::eip2718::TypedTransaction;
+use ethers_middleware::signer::SignerMiddlewareError;
 use ethers_providers::{FromErr, Middleware};
 use ethers_signers::Signer;
 use thiserror::Error;
@@ -60,6 +63,34 @@ pub enum OctopusMiddlewareError<M: Middleware, S: Signer> {
     /// Thrown if the signer's chain_id is different than the chain_id of the transaction
     #[error("specified chain_id is different than the signer's chain_id")]
     DifferentChainID,
+}
+
+impl<M, S> OctopusMiddlewear<M, S>
+where
+    M: Middleware,
+    S: Signer,
+{
+    pub fn new(inner: M, multisigner: MultiSigner<S>) -> Self {
+        OctopusMiddlewear { inner, multisigner }
+    }
+
+    async fn sign_transaction(&self, mut tx: TypedTransaction) -> Result<Bytes, OctopusMiddlewareError<M, S>> {
+        let chain_id = self.multisigner.signers[0].chain_id();
+
+        match tx.chain_id() {
+            Some(id) if id.as_u64() != chain_id => {
+                return Err(OctopusMiddlewareError::DifferentChainID)
+            }
+            None => {
+                tx.set_chain_id(chain_id);
+            }
+            _ => {}
+        }
+
+        let signature = self.multisigner.signers[0].sign_transaction(&tx).await.map_err(OctopusMiddlewareError::SignerError)?;
+
+        Ok(tx.rlp_signed(&signature))
+    }
 }
 
 #[cfg(test)]
